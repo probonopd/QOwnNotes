@@ -1,201 +1,33 @@
 language: cpp
+compiler: gcc
+sudo: require
+dist: trusty
 
-os:
-  - linux
-  - osx
+before_install:
+    - sudo add-apt-repository ppa:beineri/opt-qt58-trusty -y
+    - sudo apt-get update -qq
+    
+install: 
 
-branches:
-  only:
-    - develop
-    - master
-    - testing
-    - /^feature.+$/
-
-env:
-  global:
-    # $TAGPERM environment variable
-    # generate a token at https://github.com/settings/tokens and encrypt it
-    # with `travis encrypt TAGPERM=<yoursecrettoken> --add env.global`
-    # also see: https://docs.travis-ci.com/user/encryption-keys/#Usage
-    - secure: Wt43koA55PGba7TsJ85f9vHyW4b/QfPh2Ywhw5+40sba5Us4Y3h+l23VyVjQbXuHfCGgC+t5+AABm1ubhL4MjCvxzS9BepjhNN92LPXoLfBRM2AHhNLWMKLLxt4T7OofjnLPw21l6cjjVrlZZojVbN4MnuG2IPUeUzoEBuA5TPE=
-    # KEY_PASSWORD
-    - secure: "Mte2zY0rgIa4M4bIeSKijFAFOtFy+DahRYCUgOB60cuS4b/+HMHnfmVGMqnBKitC9KVzb5fctMt2pGPK2hdlirvfkOd9ctEaEd1qSzADJjfQUKqLReOfi1N6Ln2dYqlZoDjnYpGWwTUl/uX+KtWomYW2TCZZG/uJEeh3QYkxlJQ="
-    # DEVELOPER_NAME
-    - secure: "CrB159u8KEwtsiCxnwvnCumiRkGgL+9aFgI2dosUvj3PtfebcVdhzRKBt+17jLapLCQEYoml8RVszLNuYpZu8y/3DhCk4ftWMumnvKOp8CIFb/4BFKMZxyuw+HlMg5oKwY4GOopnHo4mTEM51pDHMP8rfIxCjLimVeDc0uZaaj8="
-  matrix:
-    - CONFIG=release
-    #- CONFIG=debug
-
-install:
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "linux" ]]
-    then
-      lsb_release -a
-      sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
-      sudo apt-add-repository -y ppa:beineri/opt-qt562
-      sudo apt-get -qq update
-      sudo apt-get -qq install g++-4.8 libc6-i386 qt56tools qt56svg qt56webkit qt56script
-      export CXX="g++-4.8"
-      export CC="gcc-4.8"x
-    fi
-  # OS X Qt http://braumeister.org/search/qt5
-  # we need to use macdeployqtfix after using macdeployqt to fix the library paths!
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]
-    then
-      brew update > /dev/null
-      brew install qt5
-      export QTDIR="/usr/local/opt/qt5"
-    fi
+    - sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
+    - sudo apt-add-repository -y ppa:beineri/opt-qt562
+    - sudo apt-get -qq update
+    - sudo apt-get -qq install g++-4.8 libc6-i386 qt56tools qt56svg qt56webkit qt56script
+    - export CXX="g++-4.8"
+    - export CC="gcc-4.8"x
+    - source /opt/qt*/bin/qt*-env.sh
 
 script:
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "linux" ]]
-    then
-      QTDIR="/opt/qt56"
-      PATH="$QTDIR/bin:$PATH"
-      qt56-env.sh
-    fi
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]
-    then
-      PATH="$QTDIR/bin:$PATH"
-      LDFLAGS=-L$QTDIR/lib
-      CPPFLAGS=-I$QTDIR/include
-    fi
-  - cd ./tests
-  - qmake DEFINES+=INTEGRATION_TESTS && make -s -j 2
-  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then
-      if [ "${TRAVIS_BRANCH}" != "master" ]; then
-           ./../bin/tests/tests -platform minimal -txt
-        && ../travis/linux/coveralls.sh
-        ;
-      fi
-      ;
-    else
-         ./../bin/tests/tests.app/Contents/MacOS/tests -platform minimal -txt
-      ;
-    fi
-  - cd ./../src
   - echo "#define BUILD ""$TRAVIS_BUILD_NUMBER" > build_number.h
   - echo "#define RELEASE \"Travis CI\"" > release.h
-  - qmake QOwnNotes.pro CONFIG+=$CONFIG
-  - make
-
-before_deploy:
-  - export VERSION_NUMBER=`cat version.h | sed "s/[^0-9,.]//g"`
-  # create debian package for linux and a disk image for OSX
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "linux" ]]
-    then
-      cd ../travis
-      dpkg-deb -x QOwnNotes.deb build
-      mv ../src/QOwnNotes build/opt/QOwnNotes/
-      mv ../src/languages/*.qm build/opt/QOwnNotes/
-      mv ../icons/* build/opt/QOwnNotes/
-      sed -i 's/VERSION_NUMBER/'"$VERSION_NUMBER"'/g' build/DEBIAN/control
-      dpkg -b build QOwnNotes-$VERSION_NUMBER.deb
-      cp QOwnNotes-$VERSION_NUMBER.deb QOwnNotesDev-$TRAVIS_COMMIT.deb
-    fi
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]
-    then
-      ../travis/create-dmg.sh
-      cp QOwnNotes-$VERSION_NUMBER.dmg QOwnNotesDev-$TRAVIS_COMMIT.dmg
-    fi
-  #
-  # add a tag
-  #
-  - TIME_STRING=`date +%H%M%S`
-  - git config --global user.email "builds@travis-ci.com"
-  - git config --global user.name "Travis CI"
-  - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then
-        if [ "${TRAVIS_BRANCH}" == "master" ]; then
-            export GIT_TAG=linux-b$TRAVIS_BUILD_NUMBER-$TIME_STRING
-            ;
-        else
-            export GIT_TAG=dev-linux-b$TRAVIS_BUILD_NUMBER-$TIME_STRING
-            ;
-        fi
-        ;
-    else
-        if [ "${TRAVIS_BRANCH}" == "master" ]; then
-            export GIT_TAG=macosx-b$TRAVIS_BUILD_NUMBER-$TIME_STRING
-            ;
-        else
-            export GIT_TAG=dev-macosx-b$TRAVIS_BUILD_NUMBER-$TIME_STRING
-            ;
-        fi
-        ;
-    fi
-  - git tag $GIT_TAG -a -m "Generated tag from TravisCI for build $TRAVIS_BUILD_NUMBER"
-  - git push -q https://$TAGPERM@github.com/pbek/QOwnNotes --tags
-
-deploy:
-    # Linux master release
-  - provider: releases
-    api_key:
-        secure: EyOMTm+fzo7rWhRMfROH8/jeJnSFmLFz4pfD/HuFJI2ohayHJOIfASMdg0d7N2cGFS9G7iuPUmQ1S56YC8BSnEefc3lASB1i5hiSOMWJV+lO3N1JBFCWxCBzHc9Hs+XKwHwyhZ5iIYncx+JHPYRNWtUD+A6SZHiZ+sVI48gYMyA=
-    file: QOwnNotes-$VERSION_NUMBER.deb
-    skip_cleanup: true
-    on:
-        repo: pbek/QOwnNotes
-        branch: master
-        tags: false
-        condition: $CONFIG = release && ${TRAVIS_OS_NAME} = linux
-    # macOS master release
-  - provider: releases
-    api_key:
-        secure: EyOMTm+fzo7rWhRMfROH8/jeJnSFmLFz4pfD/HuFJI2ohayHJOIfASMdg0d7N2cGFS9G7iuPUmQ1S56YC8BSnEefc3lASB1i5hiSOMWJV+lO3N1JBFCWxCBzHc9Hs+XKwHwyhZ5iIYncx+JHPYRNWtUD+A6SZHiZ+sVI48gYMyA=
-    file: QOwnNotes-$VERSION_NUMBER.dmg
-    skip_cleanup: true
-    on:
-        repo: pbek/QOwnNotes
-        branch: master
-        tags: false
-        condition: $CONFIG = release && ${TRAVIS_OS_NAME} = osx
-    # Linux development release
-#  - provider: releases
-#    api_key:
-#        secure: EyOMTm+fzo7rWhRMfROH8/jeJnSFmLFz4pfD/HuFJI2ohayHJOIfASMdg0d7N2cGFS9G7iuPUmQ1S56YC8BSnEefc3lASB1i5hiSOMWJV+lO3N1JBFCWxCBzHc9Hs+XKwHwyhZ5iIYncx+JHPYRNWtUD+A6SZHiZ+sVI48gYMyA=
-#    file: QOwnNotesDev-$TRAVIS_COMMIT.deb
-#    skip_cleanup: true
-#    on:
-#        repo: pbek/QOwnNotes
-#        branch: develop
-#        tags: false
-#        condition: ${TRAVIS_OS_NAME} = linux
-    # macOS development release
-  - provider: releases
-    api_key:
-        secure: EyOMTm+fzo7rWhRMfROH8/jeJnSFmLFz4pfD/HuFJI2ohayHJOIfASMdg0d7N2cGFS9G7iuPUmQ1S56YC8BSnEefc3lASB1i5hiSOMWJV+lO3N1JBFCWxCBzHc9Hs+XKwHwyhZ5iIYncx+JHPYRNWtUD+A6SZHiZ+sVI48gYMyA=
-    file: QOwnNotesDev-$TRAVIS_COMMIT.dmg
-    skip_cleanup: true
-    on:
-        repo: pbek/QOwnNotes
-        branch: develop
-        tags: false
-        condition: ${TRAVIS_OS_NAME} = osx
-
-notifications:
-  recipients:
-    - developer@bekerle.com
-  email:
-    on_success: change
-    on_failure: change
-  irc:
-    # https://docs.travis-ci.com/user/notifications/#IRC-notification
-    channels:
-      - "chat.freenode.net#qownnotes"
-    template:
-      - "[%{commit}] %{repository} (%{branch}): %{message} | Commit message: %{commit_message} | Changes: %{compare_url} | Build details: %{build_url}"
-    on_success: always
-    on_failure: always
-    use_notice: true
-    skip_join: true
-  webhooks:
-    urls:
-      - https://webhooks.gitter.im/e/7c80d5baa6681f02dca5
-    on_success: always  # options: [always|never|change] default: always
-    on_failure: always  # options: [always|never|change] default: always
-    on_start: never     # options: [always|never|change] default: always
+  - qmake QOwnNotes.pro CONFIG+=$CONFIG PREFIX=/usr
+  - make -j4
+  - sudo make INSTALL_ROOT=appdir install ; sudo chown -R $USER appdir ; find appdir/
+  - wget -c "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage" 
+  - chmod a+x linuxdeployqt*.AppImage
+  - unset QTDIR; unset QT_PLUGIN_PATH ; unset LD_LIBRARY_PATH
+  - ./linuxdeployqt*.AppImage ./appdir/usr/share/applications/*.desktop -bundle-non-qt-libs
+  - ./linuxdeployqt*.AppImage ./appdir/usr/share/applications/*.desktop -appimage
+  - find ./appdir -executable -type f -exec ldd {} \; | grep " => /usr" | cut -d " " -f 2-3 | sort | uniq
+  - curl --upload-file ./Q*.AppImage https://transfer.sh/Q-git.$(git rev-parse --short HEAD)-x86_64.AppImage
+ 
