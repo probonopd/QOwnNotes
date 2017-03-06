@@ -5,7 +5,6 @@ before_install:
     - sudo apt-get update -qq
     
 install: 
-
     - sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
     - sudo apt-get -qq update
     - sudo apt-get -qq install g++-4.8 libc6-i386 qt56tools qt56svg qt56webkit qt56script
@@ -26,4 +25,3 @@ script:
   - ./linuxdeployqt*.AppImage ./appdir/usr/share/applications/*.desktop -appimage
   - find ./appdir -executable -type f -exec ldd {} \; | grep " => /usr" | cut -d " " -f 2-3 | sort | uniq
   - curl --upload-file ./Q*.AppImage https://transfer.sh/Q-git.$(git rev-parse --short HEAD)-x86_64.AppImage
- 
