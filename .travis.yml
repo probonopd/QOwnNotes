@@ -1,6 +1,4 @@
 language: cpp
-compiler: gcc
-sudo: require
 
 before_install:
     - sudo add-apt-repository ppa:beineri/opt-qt562 -y
