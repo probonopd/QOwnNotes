@@ -24,4 +24,4 @@ script:
   - ./linuxdeployqt*.AppImage ./appdir/usr/share/applications/*.desktop -bundle-non-qt-libs
   - ./linuxdeployqt*.AppImage ./appdir/usr/share/applications/*.desktop -appimage
   - find ./appdir -executable -type f -exec ldd {} \; | grep " => /usr" | cut -d " " -f 2-3 | sort | uniq
-  - curl --upload-file ./Q*.AppImage https://transfer.sh/Q-git.$(git rev-parse --short HEAD)-x86_64.AppImage
+  - curl --upload-file ./Q*.AppImage https://transfer.sh/QOwnNotes-git.$(git rev-parse --short HEAD)-x86_64.AppImage
